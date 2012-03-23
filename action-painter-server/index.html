@@ -1,9 +1,113 @@
 <!DOCTYPE html5>
 <html>
-<head>
-	<title></title>
-</head>
-<body>
+	<head>
+		 <meta http-equiv="Pragma" content="no-cache">
+		 <meta http-equiv="Cache-Control" content="no-cache">
+		 <meta http-equiv="Expires" content="Sat, 01 Dec 2001 00:00:00 GMT">
+		<title>Action Painter</title>
+		<style>
+			body {
+				margin: 0;
+			}
+			#brush {
+				position: absolute;
+				width: 64px;
+				margin-top: -10px;
+				margin-left: -10px;
+			}
+			#myCanvas {
+				position: absolute;
+				top: 0;
+				bottom: 0;
+				left: 0;
+				right: 0;
+			}
+		</style>
+		<script src="static/socket.io.js"></script>
+	</head>
+	<body>
+		<canvas id="myCanvas" width=1024 height=768></canvas> 
+		<img id="brush" src="static/brush.png"/>
 
-</body>
+		<script type="text/javascript">
+
+var socket = io.connect('/');
+	socket.on('orientationupdate', function (data) {
+		handle(data);
+ 	});
+ 
+
+var cursor = document.getElementById("brush");
+var canvas = document.getElementById("myCanvas");
+//canvas.webkitRequestFullScreen(Element.ALLOW_KEYBOARD_INPUT);
+//canvas.mozRequestFullScreen();
+
+
+var vel_x = 0, vel_y = 0, vel_z = 0;
+var loc_x = 400, loc_y = 400, loc_z = 0;
+var MASS_RATIO = 1;
+var MAX_VELOCITY = 10;
+var BRUSH_SPEED = 10;
+
+var ctx = canvas.getContext("2d");
+ctx.moveTo(loc_x, loc_y);
+
+function handle(data) {
+  	motion = JSON.parse(data);
+  	// console.log("motion-x:",motion.x, ", motion-y: ", motion.y, ", motion-z: ", motion.z);
+
+  	var dt = 0.05; // to be sent from device, temporarily hard-coded
+  	
+  	// F = m * a, v = a * dt
+  	var abs_x = Math.abs(motion.x);
+  	var abs_y = Math.abs(motion.y);
+  	var abs_z = Math.abs(motion.z);
+
+  	var sign_x = (motion.x >= 0) ? 1 : -1;
+  	var sign_y = (motion.y >= 0) ? 1 : -1;
+  	var sign_z = (motion.z >= 0) ? 1 : -1;
+  	
+  	vel_x += Math.min(MAX_VELOCITY, (abs_x > 0.5) ? abs_x * dt * MASS_RATIO : 0) * sign_x;
+  	vel_y += Math.min(MAX_VELOCITY, (abs_y > 0.5) ? abs_y * dt * MASS_RATIO : 0) * sign_y;
+  	vel_z += Math.min(MAX_VELOCITY, (abs_z > 0.5) ? abs_z * dt * MASS_RATIO : 0) * sign_z;
+
+
+  	loc_x += vel_x * BRUSH_SPEED;
+  	loc_y += vel_y * BRUSH_SPEED;
+  	loc_z += vel_z * BRUSH_SPEED;
+  	
+  	loc_x %= canvas.width;
+  	loc_y %= canvas.height;
+  	loc_z %= 10;
+  	
+  	brush.style.top = loc_y;
+  	brush.style.left = loc_x;
+  	
+  	console.log("location-x:",loc_x, ", location-y: ", loc_y, ", location-z: ", loc_z);
+  	
+  	ctx.lineTo(loc_x, loc_y);
+  	ctx.stroke();
+  	
+}
+
+// TODO: add cursor
+
+	
+	
+
+setInterval(function() {
+	socket.emit("orientation", JSON.stringify({
+		x: Math.random()*20 - 10,
+		y: Math.random()*20 - 10,
+		z: Math.random()*20 - 10,
+		azimuth : 30,
+		pitch: 60,
+		roll: 90
+	}));
+}, 100);
+
+</script> 	
+
+	</body>
+
 </html>

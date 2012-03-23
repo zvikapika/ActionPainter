@@ -1,9 +1,14 @@
-import tornado.ioloop
 import tornado.web as web
+from tornado.ioloop import IOLoop
+from tornado.iostream import IOStream
+from tornado.netutil import TCPServer
 import tornadio2
 
+import socket
 import random
 import hashlib
+import struct
+
 
 USER_ID_COOKIE_NAME = "PRSESSID"
 APP_PORT = 8000
@@ -43,18 +48,37 @@ class ClientHandler(WebHandler):
 class MyConnection(tornadio2.SocketConnection):
 	connections = []
 
+
 	def on_open(self, request):
+		global socket_connection
+		socket_connection = self
+
 		self.connections.append(request)
 		print request.ip
 
 	def on_close(self):
 		print "closed!"
 
+	def on_message(self, message):
+		print message
+
 	@tornadio2.event("orientation")
 	def orientation(self, orientation):
-		print orientation
 		self.emit("orientationupdate", orientation)
-		
+
+class OrientationServer(TCPServer):
+	def handle_stream(self, stream, address):
+		def on_recv(data):
+			print data
+			socket_connection.emit("orientationupdate", data)
+
+			stream.read_bytes(2, on_len)
+			
+		def on_len(data_len):
+			data_int_len = struct.unpack("H", data_len)[0]
+			stream.read_bytes(data_int_len, on_recv)
+
+		stream.read_bytes(2, on_len)
 
 MyRouter = tornadio2.TornadioRouter(MyConnection)
 
@@ -66,8 +90,14 @@ routes = [
 ]
 routes.extend(MyRouter.urls)
 
-application = web.Application(routes, socket_io_port = APP_PORT)
+socket_connection = None
+
+orientation_server = OrientationServer()
+orientation_server.listen(7890)
+
+application = web.Application(routes, socket_io_port = APP_PORT, debug=1)
 
 if __name__ == "__main__":
+
 	application.listen(APP_PORT)
-	tornado.ioloop.IOLoop.instance().start()
+	IOLoop.instance().start()

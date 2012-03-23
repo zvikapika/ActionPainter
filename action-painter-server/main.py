@@ -32,7 +32,7 @@ class SessionManager:
 
 class WebHandler(web.RequestHandler):
 	def get(self):
-		session = SessionManager.get(self)
+		#session = SessionManager.get(self)
 		self.render("index.html")
 
 class ClientHandler(WebHandler):
@@ -41,15 +41,20 @@ class ClientHandler(WebHandler):
 		return "iPhone" in ua or "Android" in ua or "BlackBberry" in ua or "iPad" in ua
 
 class MyConnection(tornadio2.SocketConnection):
+	connections = []
+
 	def on_open(self, request):
-		print request
+		self.connections.append(request)
+		print request.ip
 
 	def on_close(self):
 		print "closed!"
 
 	@tornadio2.event("orientation")
-	def host_init(self, orientation):
+	def orientation(self, orientation):
 		print orientation
+		self.emit("orientationupdate", orientation)
+		
 
 MyRouter = tornadio2.TornadioRouter(MyConnection)
 

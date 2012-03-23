@@ -10,6 +10,7 @@
 				margin: 0;
 			}
 			#brush {
+				-webkit-transition: top 0.1s ease, left 0.1s ease;
 				position: absolute;
 				width: 64px;
 				margin-top: -10px;
@@ -45,7 +46,7 @@ var canvas = document.getElementById("myCanvas");
 
 var vel_x = 0, vel_y = 0, vel_z = 0;
 var loc_x = 400, loc_y = 400, loc_z = 0;
-var MASS_RATIO = 1;
+var MASS_RATIO = 0.1;
 var MAX_VELOCITY = 10;
 var BRUSH_SPEED = 10;
 
@@ -56,7 +57,7 @@ function handle(data) {
   	motion = JSON.parse(data);
   	// console.log("motion-x:",motion.x, ", motion-y: ", motion.y, ", motion-z: ", motion.z);
 
-  	var dt = 0.05; // to be sent from device, temporarily hard-coded
+  	var dt = 0.5; // to be sent from device, temporarily hard-coded
   	
   	// F = m * a, v = a * dt
   	var abs_x = Math.abs(motion.x);
@@ -66,35 +67,39 @@ function handle(data) {
   	var sign_x = (motion.x >= 0) ? 1 : -1;
   	var sign_y = (motion.y >= 0) ? 1 : -1;
   	var sign_z = (motion.z >= 0) ? 1 : -1;
+
+  	vel_x = Math.min(MAX_VELOCITY, abs_x * dt * MASS_RATIO) * sign_x;
+  	vel_y = Math.min(MAX_VELOCITY, abs_y * dt * MASS_RATIO) * sign_y;
+  	vel_z = Math.min(MAX_VELOCITY, abs_z * dt * MASS_RATIO) * sign_z;
+  	console.log("vel-x:",vel_x, ", vel-y: ", vel_y, ", vel-z: ", vel_z);
   	
-  	vel_x += Math.min(MAX_VELOCITY, (abs_x > 0.5) ? abs_x * dt * MASS_RATIO : 0) * sign_x;
-  	vel_y += Math.min(MAX_VELOCITY, (abs_y > 0.5) ? abs_y * dt * MASS_RATIO : 0) * sign_y;
-  	vel_z += Math.min(MAX_VELOCITY, (abs_z > 0.5) ? abs_z * dt * MASS_RATIO : 0) * sign_z;
-
-
   	loc_x += vel_x * BRUSH_SPEED;
   	loc_y += vel_y * BRUSH_SPEED;
   	loc_z += vel_z * BRUSH_SPEED 
-  	
-  	loc_x %= canvas.width;
-  	loc_y %= canvas.height;
+
+  	var spilled = (loc_x < 0 || loc_x > canvas.width || loc_y < 0 || loc_y > canvas.height);
+  		
+	loc_x = (loc_x + canvas.width) % canvas.width;
+	loc_y = (loc_y + canvas.height) % canvas.height;
   	loc_z %= 10;
   	
   	brush.style.top = loc_y;
   	brush.style.left = loc_x;
   	
-  	console.log("location-x:",loc_x, ", location-y: ", loc_y, ", location-z: ", loc_z);
+  	//console.log("location-x:",loc_x, ", location-y: ", loc_y, ", location-z: ", loc_z);
   	
-  	ctx.lineTo(loc_x, loc_y);
-  	ctx.stroke();
+  	if(!spilled) {
+	  	ctx.lineTo(loc_x, loc_y);
+	  	ctx.stroke();
+  	}
+  	else {
+  		ctx.moveTo(loc_x, loc_y);
+  	}
   	
 }
 
-// TODO: add cursor
-
 	
-	
-
+/*
 setInterval(function() {
 	socket.emit("orientation", JSON.stringify({
 		x: Math.random()*20 - 10,
@@ -105,6 +110,7 @@ setInterval(function() {
 		roll: 90
 	}));
 }, 100);
+*/
 
 </script> 	
 

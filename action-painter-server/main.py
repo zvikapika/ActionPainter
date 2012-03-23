@@ -91,7 +91,7 @@ socket_connection = None
 orientation_server = OrientationServer()
 orientation_server.listen(7890)
 
-application = web.Application(routes, socket_io_port = APP_PORT)
+application = web.Application(routes, socket_io_port = APP_PORT, debug=1)
 
 if __name__ == "__main__":
 

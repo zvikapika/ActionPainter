@@ -9,6 +9,7 @@ import random
 import hashlib
 import struct
 
+
 USER_ID_COOKIE_NAME = "PRSESSID"
 APP_PORT = 8000
 

@@ -9,6 +9,7 @@ import random
 import hashlib
 import struct
 
+
 USER_ID_COOKIE_NAME = "PRSESSID"
 APP_PORT = 8000
 
@@ -68,8 +69,11 @@ class MyConnection(tornadio2.SocketConnection):
 class OrientationServer(TCPServer):
 	def handle_stream(self, stream, address):
 		def on_recv(data):
+			print data
 			socket_connection.emit("orientationupdate", data)
 
+			stream.read_bytes(2, on_len)
+			
 		def on_len(data_len):
 			data_int_len = struct.unpack("H", data_len)[0]
 			stream.read_bytes(data_int_len, on_recv)

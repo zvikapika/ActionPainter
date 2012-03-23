@@ -66,7 +66,7 @@ routes = [
 ]
 routes.extend(MyRouter.urls)
 
-application = web.Application(routes, socket_io_port = APP_PORT)
+application = web.Application(routes, socket_io_port = APP_PORT, debug=1)
 
 if __name__ == "__main__":
 	application.listen(APP_PORT)

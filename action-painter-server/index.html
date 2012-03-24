@@ -29,6 +29,8 @@
 	<body>
 		<canvas id="myCanvas" width=1024 height=768></canvas> 
 		<img id="brush" src="static/brush.png"/>
+		
+		<img id="splash" src="static/splash.png" width="100" style="display:none"/>
 
 		<script type="text/javascript">
 
@@ -40,6 +42,7 @@ var socket = io.connect('/');
 
 var cursor = document.getElementById("brush");
 var canvas = document.getElementById("myCanvas");
+var splash = document.getElementById("splash");
 //canvas.webkitRequestFullScreen(Element.ALLOW_KEYBOARD_INPUT);
 //canvas.mozRequestFullScreen();
 
@@ -49,6 +52,7 @@ var loc_x = 400, loc_y = 400, loc_z = 0;
 var MASS_RATIO = 0.1;
 var MAX_VELOCITY = 10;
 var BRUSH_SPEED = 10;
+var ORIENTATION_FACTOR = 0.5;
 
 var ctx = canvas.getContext("2d");
 ctx.moveTo(loc_x, loc_y);
@@ -82,12 +86,11 @@ function handle(data) {
 		console.log("vel-x:",vel_x, ", vel-y: ", vel_y, ", vel-z: ", vel_z);
 	  	*/
 	  	
-	 	
-	  	loc_x += motion.x * 0.5;
-	  	loc_y += motion.y * 0.5;
-	  	loc_z += motion.z * 0.5;
+	  	loc_x -= motion.roll * ORIENTATION_FACTOR;
+	  	loc_y += motion.pitch * ORIENTATION_FACTOR;
+	  	loc_z += motion.azimuth * ORIENTATION_FACTOR;
 
-		var spilled = (loc_x < 0 || loc_x > canvas.width || loc_y < 0 || loc_y > canvas.height);
+	  	var spilled = (loc_x < 0 || loc_x > canvas.width || loc_y < 0 || loc_y > canvas.height);
 	
 	  	loc_x = (loc_x + canvas.width) % canvas.width;
 		loc_y = (loc_y + canvas.height) % canvas.height;
@@ -97,14 +100,16 @@ function handle(data) {
 	  	brush.style.left = loc_x;
 	  	
 	  	//console.log("location-x:",loc_x, ", location-y: ", loc_y, ", location-z: ", loc_z);
-	  	
-	  	if(!spilled) {
-		  	ctx.lineTo(loc_x, loc_y);
-		  	ctx.stroke();
+	  	if (motion.splash) {
+	  		ctx.drawImage(splash, loc_x - 75, loc_y - 70);
 	  	}
 	  	else {
-	  		ctx.moveTo(loc_x, loc_y);
+		  	if(!spilled) {
+		  		ctx.lineTo(loc_x, loc_y);
+			  	ctx.stroke();
+		  	}
 	  	}
+  		ctx.moveTo(loc_x, loc_y);
 	}  	
 }
 

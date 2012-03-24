@@ -54,48 +54,58 @@ var ctx = canvas.getContext("2d");
 ctx.moveTo(loc_x, loc_y);
 
 function handle(data) {
-  	motion = JSON.parse(data);
-  	// console.log("motion-x:",motion.x, ", motion-y: ", motion.y, ", motion-z: ", motion.z);
+	if(data.length > 2) {
+	  	motion = JSON.parse(data);
+	  	// console.log("motion-x:",motion.x, ", motion-y: ", motion.y, ", motion-z: ", motion.z);
+	
+	  	var dt = 0.5; // to be sent from device, temporarily hard-coded
+	
+	  	// F = m * a, v = a * dt
 
-  	var dt = 0.5; // to be sent from device, temporarily hard-coded
-  	
-  	// F = m * a, v = a * dt
-  	var abs_x = Math.abs(motion.x);
-  	var abs_y = Math.abs(motion.y);
-  	var abs_z = Math.abs(motion.z);
+	  	/*
+	  	var abs_x = Math.abs(motion.x);
+	  	var abs_y = Math.abs(motion.y);
+	  	var abs_z = Math.abs(motion.z);
+	
+	  	var sign_x = (motion.x >= 0) ? 1 : -1;
+	  	var sign_y = (motion.y >= 0) ? 1 : -1;
+	  	var sign_z = (motion.z >= 0) ? 1 : -1;
+	
+	  	vel_x += Math.min(MAX_VELOCITY, abs_x * dt * MASS_RATIO) * sign_x;
+	  	vel_y += Math.min(MAX_VELOCITY, abs_y * dt * MASS_RATIO) * sign_y;
+	  	vel_z += Math.min(MAX_VELOCITY, abs_z * dt * MASS_RATIO) * sign_z;
 
-  	var sign_x = (motion.x >= 0) ? 1 : -1;
-  	var sign_y = (motion.y >= 0) ? 1 : -1;
-  	var sign_z = (motion.z >= 0) ? 1 : -1;
+		loc_x += vel_x * BRUSH_SPEED;
+		loc_y += vel_y * BRUSH_SPEED;
+		loc_z += vel_z * BRUSH_SPEED 
 
-  	vel_x = Math.min(MAX_VELOCITY, abs_x * dt * MASS_RATIO) * sign_x;
-  	vel_y = Math.min(MAX_VELOCITY, abs_y * dt * MASS_RATIO) * sign_y;
-  	vel_z = Math.min(MAX_VELOCITY, abs_z * dt * MASS_RATIO) * sign_z;
-  	console.log("vel-x:",vel_x, ", vel-y: ", vel_y, ", vel-z: ", vel_z);
-  	
-  	loc_x += vel_x * BRUSH_SPEED;
-  	loc_y += vel_y * BRUSH_SPEED;
-  	loc_z += vel_z * BRUSH_SPEED 
+		console.log("vel-x:",vel_x, ", vel-y: ", vel_y, ", vel-z: ", vel_z);
+	  	*/
+	  	
+	 	
+	  	loc_x += motion.x * 0.5;
+	  	loc_y += motion.y * 0.5;
+	  	loc_z += motion.z * 0.5;
 
-  	var spilled = (loc_x < 0 || loc_x > canvas.width || loc_y < 0 || loc_y > canvas.height);
-  		
-	loc_x = (loc_x + canvas.width) % canvas.width;
-	loc_y = (loc_y + canvas.height) % canvas.height;
-  	loc_z %= 10;
-  	
-  	brush.style.top = loc_y;
-  	brush.style.left = loc_x;
-  	
-  	//console.log("location-x:",loc_x, ", location-y: ", loc_y, ", location-z: ", loc_z);
-  	
-  	if(!spilled) {
-	  	ctx.lineTo(loc_x, loc_y);
-	  	ctx.stroke();
-  	}
-  	else {
-  		ctx.moveTo(loc_x, loc_y);
-  	}
-  	
+		var spilled = (loc_x < 0 || loc_x > canvas.width || loc_y < 0 || loc_y > canvas.height);
+	
+	  	loc_x = (loc_x + canvas.width) % canvas.width;
+		loc_y = (loc_y + canvas.height) % canvas.height;
+	  	loc_z %= 10;
+	
+	  	brush.style.top = loc_y;
+	  	brush.style.left = loc_x;
+	  	
+	  	//console.log("location-x:",loc_x, ", location-y: ", loc_y, ", location-z: ", loc_z);
+	  	
+	  	if(!spilled) {
+		  	ctx.lineTo(loc_x, loc_y);
+		  	ctx.stroke();
+	  	}
+	  	else {
+	  		ctx.moveTo(loc_x, loc_y);
+	  	}
+	}  	
 }
 
 	

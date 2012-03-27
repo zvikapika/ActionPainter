@@ -27,7 +27,7 @@
 		<script src="static/socket.io.js"></script>
 	</head>
 	<body>
-		<canvas id="myCanvas" width=1024 height=768></canvas> 
+		<canvas id="myCanvas" width=1420 height=850></canvas> 
 		<img id="brush" src="static/brush.png"/>
 		
 		<img id="splash" src="static/splash.png" width="100" style="display:none"/>
@@ -56,12 +56,12 @@ var ORIENTATION_FACTOR = 0.5;
 
 var ctx = canvas.getContext("2d");
 ctx.moveTo(loc_x, loc_y);
-
+ctx.lineWidth = 10;
+	
 function handle(data) {
 	if(data.length > 2) {
 	  	motion = JSON.parse(data);
 	  	// console.log("motion-x:",motion.x, ", motion-y: ", motion.y, ", motion-z: ", motion.z);
-	
 	  	var dt = 0.5; // to be sent from device, temporarily hard-coded
 	
 	  	// F = m * a, v = a * dt
@@ -86,9 +86,9 @@ function handle(data) {
 		console.log("vel-x:",vel_x, ", vel-y: ", vel_y, ", vel-z: ", vel_z);
 	  	*/
 	  	
-	  	loc_x -= motion.roll * ORIENTATION_FACTOR;
-	  	loc_y += motion.pitch * ORIENTATION_FACTOR;
-	  	loc_z += motion.azimuth * ORIENTATION_FACTOR;
+	  	loc_x -= motion.rl * ORIENTATION_FACTOR;
+	  	loc_y += motion.pt* ORIENTATION_FACTOR;
+	  	loc_z += motion.az* ORIENTATION_FACTOR;
 
 	  	var spilled = (loc_x < 0 || loc_x > canvas.width || loc_y < 0 || loc_y > canvas.height);
 	
@@ -100,7 +100,7 @@ function handle(data) {
 	  	brush.style.left = loc_x;
 	  	
 	  	//console.log("location-x:",loc_x, ", location-y: ", loc_y, ", location-z: ", loc_z);
-	  	if (motion.splash) {
+	  	if (motion.sp) {
 	  		ctx.drawImage(splash, loc_x - 75, loc_y - 70);
 	  	}
 	  	else {

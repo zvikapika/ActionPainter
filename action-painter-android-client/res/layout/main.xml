@@ -5,11 +5,54 @@
     android:layout_height="fill_parent"
     android:orientation="vertical" >
 
-    <Button
-        android:id="@+id/showMotionData"
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:id="@+id/linearLayout1"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/show_motion_data" />
+        android:orientation="vertical" >
+
+        <LinearLayout
+            android:id="@+id/linearLayout1"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" >
+
+            <Button
+                android:id="@+id/clearDisplay"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/clear" />
+
+            <Button
+                android:id="@+id/printDisplay"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/print" />
+
+            <Button
+                android:id="@+id/changeColor"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/color" />
+
+            <Button
+                android:id="@+id/changeMode"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/mode" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/linearLayout1"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" >
+
+            <Button
+                android:id="@+id/showMotionData"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/show_motion_data" />
+        </LinearLayout>
+    </LinearLayout>
 
     <TextView
         android:id="@+id/text1"
@@ -26,18 +69,17 @@
         android:layout_width="fill_parent"
         android:layout_height="wrap_content" />
 
-<!--     <FrameLayout -->
-<!--         android:id="@+id/frameLayout1" -->
-<!--         android:layout_width="match_parent" -->
-<!--         android:layout_height="wrap_content" -->
-<!--         android:layout_weight="0.53" > -->
+    <FrameLayout
+        android:id="@+id/frameLayout1"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" >
 
         <ImageButton
             android:id="@+id/imageButton1"
-            android:layout_width="match_parent"
-            android:layout_height="301dp"
-            android:src="@drawable/paint_toggle" />
-
-<!--     </FrameLayout> -->
+            android:layout_width="fill_parent"
+            android:layout_height="fill_parent"
+            android:scaleType="fitXY"
+            android:src="@drawable/pen_up" />
+    </FrameLayout>
 
 </LinearLayout>

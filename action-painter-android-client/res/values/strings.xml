@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-
     <string name="hello">Hello World, ActionPainterActivity!</string>
     <string name="app_name">ActionPainter</string>
-    <string name="show_motion_data">Show Motion Data</string>
+    <string name="show_motion_data">Show Motion data</string>
     <string name="hide_motion_data">Hide Motion Data</string>
-
+    <string name="mode">Mode</string>
+    <string name="clear">Clear</string>
+    <string name="print">Print</string>
+    <string name="color">Color</string>
 </resources>

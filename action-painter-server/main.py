@@ -69,7 +69,7 @@ class MyConnection(tornadio2.SocketConnection):
 class OrientationServer(TCPServer):
 	def handle_stream(self, stream, address):
 		def on_recv(data):
-			print data
+			# print data
 			socket_connection.emit("orientationupdate", data)
 
 			stream.read_bytes(2, on_len)

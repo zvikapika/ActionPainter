@@ -23,6 +23,7 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
@@ -36,7 +37,7 @@ import android.widget.TextView;
 
 public class ActionPainterActivity extends Activity implements SensorEventListener 
 {
-	private static final int SPLASH_THRESHOLD = 5;
+	private static final int SPLASH_THRESHOLD = 7;
 	private static final String TAG = "ACTION_PAINTER";
 	private static final String SERVER_IP = "http://action-painter.appspot.com/ip.jsp";
 	private static final double RAD = (double) 57.2957795;
@@ -52,6 +53,7 @@ public class ActionPainterActivity extends Activity implements SensorEventListen
 
 	private float[] gravity = new float[3];
 	private long cid;
+	private long serialMessageId;
 
 	private DecimalFormat digit3 = new DecimalFormat("0.000");
 
@@ -65,6 +67,7 @@ public class ActionPainterActivity extends Activity implements SensorEventListen
 			
 	private boolean showMotionData = false;
 	private boolean penDown = false;
+	private String command = "";
 	
 	private long lastSplashTimestamp = System.currentTimeMillis();
 	
@@ -75,7 +78,9 @@ public class ActionPainterActivity extends Activity implements SensorEventListen
 		mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
 		TelephonyManager telephonyManager = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
 		mPowerManager = (PowerManager)getSystemService(Context.POWER_SERVICE);
-		cid = Math.abs(telephonyManager.getDeviceId().hashCode());
+		cid = telephonyManager.getDeviceId() != null ? 
+				Math.abs(telephonyManager.getDeviceId().hashCode()):
+				Math.abs(fakeImei().hashCode());
 		
 		setContentView(R.layout.main);
 		text1 = (TextView)findViewById(R.id.text1);
@@ -102,6 +107,43 @@ public class ActionPainterActivity extends Activity implements SensorEventListen
 			@Override
 			public void onClick(View v) {
 				penDown = !penDown;
+				paintToggle.setImageResource(penDown ? R.drawable.pollock_color : R.drawable.pollock_bw);
+			}
+		});
+		
+		Button clearDisplayButton = (Button)findViewById(R.id.clearDisplay);
+		clearDisplayButton.setOnClickListener(new OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				Log.d(TAG, "clear display");
+				command = "c";
+			}
+		});
+
+		Button printDisplayButton = (Button)findViewById(R.id.printDisplay);
+		printDisplayButton.setOnClickListener(new OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				Log.d(TAG, "print display");
+				command = "p";
+			}
+		});
+
+		Button changeColorButton = (Button)findViewById(R.id.changeColor);
+		changeColorButton.setOnClickListener(new OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				Log.d(TAG, "change color");
+				command="+";
+			}
+		});
+
+		Button changeModeButton = (Button)findViewById(R.id.changeMode);
+		changeModeButton.setOnClickListener(new OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				Log.d(TAG, "change mode");
+				command = "m";
 			}
 		});
 	}
@@ -114,7 +156,10 @@ public class ActionPainterActivity extends Activity implements SensorEventListen
 			if (null == mSocket  || mSocket.isConnected() == false) {
 				text3.setText("Obtaining local server IP...");
 				String ip = getServerIp();
-				text3.setText("local server: " + ip);
+				if(ip == null || "null".equals(ip)) {
+					text3.setText("No server registered on master repository");
+				}
+				text3.setText("client id: " + cid + ", local server: " + ip);
 				mSocket = new Socket(ip, 7890);
 				out = mSocket.getOutputStream();
 				Log.d(TAG,"reconnecting");
@@ -129,6 +174,10 @@ public class ActionPainterActivity extends Activity implements SensorEventListen
 			obj.put("rl", digit3.format(roll));
 			obj.put("sp", splash);
 			obj.put("pd", penDown);
+			obj.put("cmd", command);
+			obj.put("mid", serialMessageId++);
+			
+			command = "";
 
 			String str = obj.toString();
 			out.write(toBytes(str.length()));
@@ -195,7 +244,6 @@ public class ActionPainterActivity extends Activity implements SensorEventListen
 	{
 		if (event.sensor.getType() ==  Sensor.TYPE_MAGNETIC_FIELD) {
 			mLastMag = event.values;
-
 			if (null != mLastAccl)
 			{
 				float[]  vals = new float[3];
@@ -206,7 +254,7 @@ public class ActionPainterActivity extends Activity implements SensorEventListen
 				pitch 	= (float)(vals[1] /* RAD*/);
 				roll	= (float)(vals[2] /* RAD*/);
 				if(showMotionData) {
-					text2.setText("azimuth: "+(int)azimuth + ", pitch: " + (int)pitch + ", roll: " + (int)roll);
+					text2.setText("azimuth: "+ digit3.format(azimuth) + ", pitch: " + digit3.format(pitch) + ", roll: " + digit3.format(roll));
 				}
 			}
 		}
@@ -243,7 +291,7 @@ public class ActionPainterActivity extends Activity implements SensorEventListen
 			//Log.d(TAG, "X " + x + " Y " + y + " Z " +z);
 			// float accelationSquareRoot = (accX * accX + accY * accY + accZ * accZ) / (SensorManager.GRAVITY_EARTH * SensorManager.GRAVITY_EARTH);
 			
-			splash =  (System.currentTimeMillis() - lastSplashTimestamp > 1000) && ((Math.abs(accZ) > SPLASH_THRESHOLD) && (Math.abs(accY) < SPLASH_THRESHOLD) && (Math.abs(accX) < SPLASH_THRESHOLD)); // (accelationSquareRoot >= 2); // twice the accelation of earth
+			splash = (System.currentTimeMillis() - lastSplashTimestamp > 1000) && ((Math.abs(accZ) > SPLASH_THRESHOLD) && (Math.abs(accY) < SPLASH_THRESHOLD) && (Math.abs(accX) < SPLASH_THRESHOLD)); // (accelationSquareRoot >= 2); // twice the accelation of earth
 			if(splash) {
 				lastSplashTimestamp = System.currentTimeMillis(); 
 				accX = 0;
@@ -301,4 +349,16 @@ public class ActionPainterActivity extends Activity implements SensorEventListen
 				mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER),
 				SensorManager.SENSOR_DELAY_UI);
 	} 
+
+	private String fakeImei() {
+		return "17" + 
+	        	Build.BOARD.length()%10+ Build.BRAND.length()%10 +
+	        	Build.CPU_ABI.length()%10 + Build.DEVICE.length()%10 +
+	        	Build.DISPLAY.length()%10 + Build.HOST.length()%10 +
+	        	Build.ID.length()%10 + Build.MANUFACTURER.length()%10 +
+	        	Build.MODEL.length()%10 + Build.PRODUCT.length()%10 +
+	        	Build.TAGS.length()%10 + Build.TYPE.length()%10 +
+	        	Build.USER.length()%10 ; //13 digits
+	}
+
 }

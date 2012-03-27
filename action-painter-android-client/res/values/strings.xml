@@ -3,5 +3,7 @@
 
     <string name="hello">Hello World, ActionPainterActivity!</string>
     <string name="app_name">ActionPainter</string>
+    <string name="show_motion_data">Show Motion Data</string>
+    <string name="hide_motion_data">Hide Motion Data</string>
 
 </resources>

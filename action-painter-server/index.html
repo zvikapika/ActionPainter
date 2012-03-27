@@ -32,7 +32,7 @@
 		<canvas id="paintCanvas" width=1420 height=850></canvas> 
 
 		<div id="brushDiv" style="position:absolute">
-			<canvas id="brushCanvas"></canvas>
+			<canvas id="brushCanvas1"></canvas>
  		</div>		
 
 		<img id="splash" src="static/splash.png" width="100" style="display:none"/>
@@ -48,68 +48,140 @@ var socket = io.connect('/');
 
 var brushDiv = document.getElementById("brushDiv");
 var paintCanvas = document.getElementById("paintCanvas");
-var brushCanvas = document.getElementById("brushCanvas");
+var brushCanvas1 = document.getElementById("brushCanvas1");
 var splash = document.getElementById("splash");
-var brushCtx = brushCanvas.getContext("2d");
+var brushCtx = brushCanvas1.getContext("2d");
 var paintCtx = paintCanvas.getContext("2d");
 //canvas.webkitRequestFullScreen(Element.ALLOW_KEYBOARD_INPUT);
 //canvas.mozRequestFullScreen();
 
 
 var vel_x = 0, vel_y = 0, vel_z = 0;
-var loc_x = 400, loc_y = 400, loc_z = 0;
+var loc_x = paintCanvas.width/2, loc_y = paintCanvas.height/2, loc_z = 0;
 var MASS_RATIO = 0.1;
 var MAX_VELOCITY = 10;
 var BRUSH_SPEED = 10;
-var ORIENTATION_FACTOR = 0.5;
+var ORIENTATION_FACTOR = 0.15;
+var XMARGIN = 10;
+var YMARGIN = 10;
 var RAD = 57.2957795;
 var AMPLITUDE = 7;
 
-paintCtx.moveTo(loc_x, loc_y);
-paintCtx.lineWidth = 5;
+var paintMode = 3;
+var colorCounter = 0;
 
+paintCtx.moveTo(loc_x, loc_y);
+paintCtx.lineWidth = 7;
+
+function max(a,b)
+{
+ return (a>b ? a : b);
+}
+
+function min(a,b)
+{
+ return (a<b ? a : b);
+}
 
 function handle(data) {
 	if(data.length > 2) {
 	  	motion = JSON.parse(data);
 	  	var dt = 0.5; // to be sent from device, temporarily hard-coded
 	
-	  	loc_x += motion.rl * ORIENTATION_FACTOR * RAD;
-	  	loc_y += motion.pt* ORIENTATION_FACTOR * RAD;
+	  	loc_x += motion.rl * ORIENTATION_FACTOR * RAD * Math.abs(motion.acx);
+	  	loc_y += motion.pt* ORIENTATION_FACTOR * RAD * Math.abs(motion.acy);
 	  	loc_z += motion.az* ORIENTATION_FACTOR * RAD;
 
-/*
+
 	  	var acc = Math.sqrt(Math.pow(motion.acx, 2) + Math.pow(motion.acy, 2));
+		
+		/*
+		switch (motion.cmd)
+		{
+		 case 's': 	savePaintCanvas(); 
+					break;
+		 case 'c': 	paintCanvas.width = paintCanvas.width; //clear canvas  - lousy hack :( 
+					break;
+		 case '+': 	{//color change
+						colorCounter++;
+						if (colorCounter>3)
+							colorCounter = 0;
+					}
+					break;
+
+		}
+		*/
+		
+/*
 		// console.log(motion.acx + ", " + motion.acy);
 	  	loc_x += Math.cos(motion.rl) * acc * AMPLITUDE;
 	  	loc_y += Math.sin(motion.rl) * acc * AMPLITUDE;
 	  	// console.log(motion.rl, " ", Math.sin(motion.rl) * acc, " ", acc);
 */
 
-	  	var spilled = (loc_x < 0 || loc_x > paintCanvas.width || loc_y < 0 || loc_y > paintCanvas.height);
+	  	var spilled = (loc_x <= XMARGIN || loc_x >= paintCanvas.width-XMARGIN || loc_y <= YMARGIN || loc_y >= paintCanvas.height-YMARGIN);
+	    
+	  	//loc_x = (loc_x + paintCanvas.width) % paintCanvas.width;
+		//loc_y = (loc_y + paintCanvas.height) % paintCanvas.height;
+		if (loc_x < XMARGIN) {
+			loc_x = XMARGIN;
+			spilled = true;
+			}
+		if (loc_x>paintCanvas.width-XMARGIN){
+			loc_x = paintCanvas.width-XMARGIN;
+			spilled = true;
+			}
+		if (loc_y < YMARGIN){
+			loc_y = YMARGIN;
+			spilled = true;
+			}
+		if (loc_y>paintCanvas.height-YMARGIN){
+			loc_y = paintCanvas.height-YMARGIN;
+			spilled = true;
+			}
 	
-	  	loc_x = (loc_x + paintCanvas.width) % paintCanvas.width;
-		loc_y = (loc_y + paintCanvas.height) % paintCanvas.height;
+
 	  	loc_z %= 10;
 	
-	  	brushDiv.style.top = loc_y - brushCanvas.height/2 - 10;
-	  	brushDiv.style.left = loc_x - brushCanvas.width/2-30;
-		brushCtx.clearRect(0,0,brushCanvas.width,brushCanvas.height);
- 		brushCtx.translate(brushCanvas.width/2, brushCanvas.height/2);
+	  	brushDiv.style.top = loc_y - brushCanvas1.height/2 - 10;
+	  	brushDiv.style.left = loc_x - brushCanvas1.width/2-30;
+		brushCtx.clearRect(0,0,brushCanvas1.width,brushCanvas1.height);
+ 		brushCtx.translate(brushCanvas1.width/2, brushCanvas1.height/2);
 		brushCtx.rotate(motion.rl);
 		brushCtx.drawImage(brush, 0, 0, 64,64);
 		brushCtx.rotate(-motion.rl);
-  		brushCtx.translate(-brushCanvas.width/2, -brushCanvas.height/2);
+  		brushCtx.translate(-brushCanvas1.width/2, -brushCanvas1.height/2);
 		
 	  	//console.log("location-x:",loc_x, ", location-y: ", loc_y, ", location-z: ", loc_z);
 	  	if (motion.sp) {
-	  		paintCtx.drawImage(splash, loc_x - 35, loc_y - 35);
+	  		//paintCtx.drawImage(splash, loc_x - 35, loc_y - 35);
 	  	}
 	  	// console.log(loc_x, ", ", loc_y);
 	  	if(!spilled && motion.pd) {
+		    paintCtx.lineWidth = 2+Math.pow(acc,2);
 	  		paintCtx.lineTo(loc_x, loc_y);
+			paintCtx.globalAlpha = 0.4; // set global alpha
+			
+			switch (colorCounter)
+			{
+			 case 0: paintCtx.strokeStyle = "#ffffff00"; // black
+			 break;
+			 case 1: paintCtx.strokeStyle = "#00e0ff"; // cyan
+			 break;
+			 case 2: paintCtx.strokeStyle = "#ff0080"; // magenta
+			 break;
+			 case 3: paintCtx.strokeStyle = "#ffff00"; // yellow
+			 break;
+			}
+			
+			if (paintMode==2)
+				paintCtx.lineCap = "round";
+			else
+				paintCtx.lineCap = "butt";
+				
 	  		paintCtx.stroke();
   		}
+		paintCtx.beginPath();
 	  	paintCtx.moveTo(loc_x, loc_y);
 	}  	
 }

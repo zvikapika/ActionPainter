@@ -29,7 +29,7 @@
 		<script src="static/canvas2image.js"></script>
 	</head>
 	<body>
-		<canvas id="paintCanvas" width=1420 height=850></canvas> 
+		<canvas id="paintCanvas" width=1410 height=865 style="border:15px solid #d3d3d3;"></canvas> 
 
 		<div id="brushDiv" style="position:absolute">
 			<canvas id="brushCanvas1"></canvas>
@@ -95,10 +95,13 @@ function handle(data) {
 
 	  	var acc = Math.sqrt(Math.pow(motion.acx, 2) + Math.pow(motion.acy, 2));
 		
-		/*
+		if (motion.cmd != null)
+			console.log("command "+motion.cmd);
 		switch (motion.cmd)
 		{
-		 case 's': 	savePaintCanvas(); 
+		 case 'm': 	paintMode = (paintMode+1)%4; //change paint mode
+					break;
+		 case 'p': 	savePaintCanvas(); 
 					break;
 		 case 'c': 	paintCanvas.width = paintCanvas.width; //clear canvas  - lousy hack :( 
 					break;
@@ -110,7 +113,6 @@ function handle(data) {
 					break;
 
 		}
-		*/
 		
 /*
 		// console.log(motion.acx + ", " + motion.acy);
@@ -174,10 +176,13 @@ function handle(data) {
 			 break;
 			}
 			
-			if (paintMode==2)
-				paintCtx.lineCap = "round";
-			else
-				paintCtx.lineCap = "butt";
+			switch (paintMode)
+			{
+			 case 2: 	paintCtx.lineCap = "round";
+						break;
+			 case 3: 	paintCtx.lineCap = "butt";
+						break;
+			}
 				
 	  		paintCtx.stroke();
   		}

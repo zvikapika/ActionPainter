@@ -31,12 +31,16 @@
 	<body>
 		<canvas id="paintCanvas" width=1410 height=870 style="border:15px solid #d3d3d3;"></canvas> 
 
-		<div id="brushDiv" style="position:absolute">
+		<div id="brushDiv1" style="position:absolute">
 			<canvas id="brushCanvas1"></canvas>
+ 		</div>		
+		<div id="brushDiv2" style="position:absolute">
+			<canvas id="brushCanvas2"></canvas>
  		</div>		
 
 		<img id="splash" src="static/splash.png" width="100" style="display:none"/>
-		<img id="brush" src="static/brush.png" width="64" style="display:none"/>
+		<img id="brush1" src="static/brush1.png" width="64" style="display:none"/>
+		<img id="brush2" src="static/brush2.png" width="64" style="display:none"/>
 
 		<script type="text/javascript">
 
@@ -46,20 +50,27 @@ var socket = io.connect('/');
  	});
  
 
-var brushDiv = document.getElementById("brushDiv");
+var brush1Div = document.getElementById("brushDiv1");
+var brush2Div = document.getElementById("brushDiv2");
 var paintCanvas = document.getElementById("paintCanvas");
 var brushCanvas1 = document.getElementById("brushCanvas1");
+var brushCanvas2 = document.getElementById("brushCanvas2");
 var splash = document.getElementById("splash");
-var brushCtx = brushCanvas1.getContext("2d");
 var paintCtx = paintCanvas.getContext("2d");
+var brush1Ctx = brushCanvas1.getContext("2d");
+var brush2Ctx = brushCanvas2.getContext("2d");
+
+var brush, brushDiv, brushCtx, brushCanvas;
+var user = 0;
+
 //canvas.webkitRequestFullScreen(Element.ALLOW_KEYBOARD_INPUT);
 //canvas.mozRequestFullScreen();
 document.body.style.overflow = "hidden"; // disable scrollbars
 
 
-var vel_x = 0, vel_y = 0, vel_z = 0;
-var loc_x = paintCanvas.width/2, loc_y = paintCanvas.height/2, loc_z = 0;
-var loc_x1 = 0, loc_y1 = 0, loc_x2 = 0, loc_y2 = 0;
+var loc_x = [paintCanvas.width*1/3, paintCanvas.width*2/3];
+var loc_y = [paintCanvas.height/2,paintCanvas.height/2];
+var loc_x1 = [0,0], loc_y1 = [0,0], loc_x2 = [0,0], loc_y2 = [0,0];
 var MASS_RATIO = 0.1;
 var MAX_VELOCITY = 10;
 var BRUSH_SPEED = 10;
@@ -72,7 +83,7 @@ var AMPLITUDE = 7;
 var paintMode = 3;
 var colorCounter = 0;
 
-paintCtx.moveTo(loc_x, loc_y);
+paintCtx.moveTo(loc_x[user], loc_y[user]);
 paintCtx.lineWidth = 7;
 
 function max(a,b) {
@@ -86,22 +97,37 @@ function min(a,b) {
 function handle(data) {
 	if(data.length > 2) {
 	  	motion = JSON.parse(data);
-	  	var dt = 0.5; // to be sent from device, temporarily hard-coded
+		//user
+		user = motion.id % 2;
+		if (user == 0)
+		{
+		  brush = brush1;
+		  brushDiv = brush1Div;
+		  brushCtx = brush1Ctx;
+		  brushCanvas = brushCanvas1;
+		}
+		if (user == 1)
+		{
+		  brush = brush2;
+		  brushDiv = brush2Div;
+		  brushCtx = brush2Ctx;
+		  brushCanvas = brushCanvas2;
+		}
+		
+		
 		// console.log("rl=" + motion.rl + ", pt=" + motion.pt);
-	  	loc_x += motion.rl * ORIENTATION_FACTOR * RAD * Math.abs(motion.acx);
+	  	loc_x[user] += motion.rl * ORIENTATION_FACTOR * RAD * Math.abs(motion.acx);
 //	  	loc_y += motion.pt* ORIENTATION_FACTOR * RAD * Math.abs(motion.acy);
-	  	loc_z += motion.az* ORIENTATION_FACTOR * RAD;
 
 	  	var acc = Math.sqrt(Math.pow(motion.acx, 2) + Math.pow(motion.acy, 2));
 
-		if(Math.abs(motion.rl) < 1.5) {
-			loc_y -= (1.5 - Math.abs(motion.rl)) * ORIENTATION_FACTOR * RAD * acc;
+		if(Math.abs(motion.rl) < 1.5) {//facing up
+			loc_y[user] -= (1.5 - Math.abs(motion.rl)) * ORIENTATION_FACTOR * RAD * acc;
 		}
-		else {
-			loc_y += (Math.abs(motion.rl) - 1.5) * ORIENTATION_FACTOR * RAD * acc;
+		else {//facing down
+			loc_y[user] += (Math.abs(motion.rl) - 1.5) * ORIENTATION_FACTOR * RAD * acc;
 		}
-		
-		
+				
 		switch (motion.cmd)
 		{
 		 case 'm': 	paintMode = (paintMode+1)%4; //change paint mode
@@ -119,52 +145,45 @@ function handle(data) {
 
 		}
 		
-/*
-		// console.log(motion.acx + ", " + motion.acy);
-	  	loc_x += Math.cos(motion.rl) * acc * AMPLITUDE;
-	  	loc_y += Math.sin(motion.rl) * acc * AMPLITUDE;
-	  	// console.log(motion.rl, " ", Math.sin(motion.rl) * acc, " ", acc);
-*/
-
-	  	var spilled = (loc_x <= XMARGIN || loc_x >= paintCanvas.width-XMARGIN || loc_y <= YMARGIN || loc_y >= paintCanvas.height-YMARGIN);
+	  	var spilled = (loc_x[user] <= XMARGIN || loc_x[user] >= paintCanvas.width-XMARGIN || loc_y[user] <= YMARGIN || loc_y[user] >= paintCanvas.height-YMARGIN);
 	    
-	  	//loc_x = (loc_x + paintCanvas.width) % paintCanvas.width;
-		//loc_y = (loc_y + paintCanvas.height) % paintCanvas.height;
-		if (loc_x < XMARGIN) {
-			loc_x = XMARGIN;
+		//constraint brush to canvas
+		if (loc_x[user] < XMARGIN) {
+			loc_x[user] = XMARGIN;
 			spilled = true;
 			}
-		if (loc_x>paintCanvas.width-XMARGIN){
-			loc_x = paintCanvas.width-XMARGIN;
+		if (loc_x[user]>paintCanvas.width-XMARGIN){
+			loc_x[user] = paintCanvas.width-XMARGIN;
 			spilled = true;
 			}
-		if (loc_y < YMARGIN){
-			loc_y = YMARGIN;
+		if (loc_y[user] < YMARGIN){
+			loc_y[user] = YMARGIN;
 			spilled = true;
 			}
-		if (loc_y>paintCanvas.height-YMARGIN){
-			loc_y = paintCanvas.height-YMARGIN;
+		if (loc_y[user]>paintCanvas.height-YMARGIN){
+			loc_y[user] = paintCanvas.height-YMARGIN;
 			spilled = true;
 			}
 	
 
-	  	loc_z %= 10;
-	
-	  	brushDiv.style.top = loc_y - brushCanvas1.height/2 - 10;
-	  	brushDiv.style.left = loc_x - brushCanvas1.width/2-30;
-		brushCtx.clearRect(0,0,brushCanvas1.width,brushCanvas1.height);
- 		brushCtx.translate(brushCanvas1.width/2, brushCanvas1.height/2);
+	    //display (rotated) brush
+	  	brushDiv.style.top = loc_y[user] - brushCanvas.height/2 - 10;
+	  	brushDiv.style.left = loc_x[user] - brushCanvas.width/2-30;
+		brushCtx.clearRect(0,0,brushCanvas.width,brushCanvas.height);
+ 		brushCtx.translate(brushCanvas.width/2, brushCanvas.height/2);
 		brushCtx.rotate(motion.rl);
 		brushCtx.drawImage(brush, 0, 0, 64,64);
 		brushCtx.rotate(-motion.rl);
-  		brushCtx.translate(-brushCanvas1.width/2, -brushCanvas1.height/2);
+  		brushCtx.translate(-brushCanvas.width/2, -brushCanvas.height/2);
 		
-	  	//console.log("location-x:",loc_x, ", location-y: ", loc_y, ", location-z: ", loc_z);
+	  	//console.log("location-x:",loc_x, ", location-y: ", loc_y);
 	  	if (motion.sp) {
-	  		paintCtx.drawImage(splash, loc_x - 35, loc_y - 35);
+	  		paintCtx.drawImage(splash, loc_x[user] - 35, loc_y[user] - 35);
 	  	}
-	  	// console.log(loc_x, ", ", loc_y);
+	  	// console.log(loc_x[user], ", ", loc_y[user]);
 	  	if(!spilled && motion.pd) {
+			paintCtx.beginPath();
+			paintCtx.moveTo(loc_x1[user], loc_y1[user]);
 		    paintCtx.lineWidth = 2+Math.pow(acc,2);
 			paintCtx.globalAlpha = 0.4; // set global alpha
 			
@@ -188,54 +207,49 @@ function handle(data) {
 			 case 0:
 				paintCtx.lineCap = "round";
 				paintCtx.bezierCurveTo(
-					loc_x2, loc_y2, loc_x1, loc_y1, loc_x, loc_y
-// 					loc_x / 4, loc_y / 4, loc_x * 1.25, loc_y * 1.25, loc_x, loc_y
+					loc_x2[user], loc_y2[user], loc_x1[user], loc_y1[user], loc_x[user], loc_y[user]
 				);
 				break;
 			 case 1:
 				paintCtx.lineCap = "butt";
 				
-				paintCtx.quadraticCurveTo(
-					loc_x1,loc_y1,loc_x,loc_y
-// 					loc_x + 100 * (Math.random() - 0.5),
-// 					loc_y + 100 * (Math.random() - 0.5),
-// 					loc_x, 
-// 					loc_y
-				);
+				paintCtx.quadraticCurveTo(loc_x1[user],loc_y1[user],loc_x[user],loc_y[user]);
 				break;
 			 case 2:
 				paintCtx.lineCap = "round";
-		  		paintCtx.lineTo(loc_x, loc_y);
+		  		paintCtx.lineTo(loc_x[user], loc_y[user]);
 				break;
 			 case 3:
 				paintCtx.lineCap = "butt";
-		  		paintCtx.lineTo(loc_x, loc_y);
+		  		paintCtx.lineTo(loc_x[user], loc_y[user]);
 				break;
 			}
 	  		paintCtx.stroke();
   		}
-		paintCtx.beginPath();
-	  	paintCtx.moveTo(loc_x, loc_y);
 	  	
-	  	loc_x2 = loc_x1;
-	  	loc_y2 = loc_y1;
+	  	loc_x2[user] = loc_x1[user];
+	  	loc_y2[user] = loc_y1[user];
 	  	
-	  	loc_x1 = loc_x;
-	  	loc_y1 = loc_y;
+	  	loc_x1[user] = loc_x[user];
+	  	loc_y1[user] = loc_y[user];
 	}  	
 }
 
-	
-/*
+/*	
+var counter = 0;
 setInterval(function() {
-	socket.emit("orientation", JSON.stringify({
-		x: Math.random()*20 - 10,
-		y: Math.random()*20 - 10,
-		z: Math.random()*20 - 10,
-		azimuth : 30,
-		pitch: 60,
-		roll: 90
-	}));
+    var x = paintCanvas.width-XMARGIN-150;
+    var y = 100;
+ 
+    paintCtx.font = "80pt Calibri";
+	if (counter<10)
+		paintCtx.fillStyle = "#0000ff"; // text color
+	else
+		paintCtx.fillStyle = "#FFFFff"; // text color
+	
+    paintCtx.fillText(counter%10, x, y);	
+	counter = (counter+1)%20
+	
 }, 100);
 */
 

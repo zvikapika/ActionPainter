@@ -110,7 +110,7 @@ public class ActionPainterActivity extends Activity implements SensorEventListen
 				paintToggle.setImageResource(penDown ? R.drawable.pollock_color : R.drawable.pollock_bw);
 			}
 		});
-		
+
 		Button clearDisplayButton = (Button)findViewById(R.id.clearDisplay);
 		clearDisplayButton.setOnClickListener(new OnClickListener() {
 			@Override
@@ -153,16 +153,23 @@ public class ActionPainterActivity extends Activity implements SensorEventListen
 	{
 		try
 		{
-			if (null == mSocket  || mSocket.isConnected() == false) {
+			while (null == mSocket  || mSocket.isConnected() == false) {
 				text3.setText("Obtaining local server IP...");
 				String ip = getServerIp();
 				if(ip == null || "null".equals(ip)) {
 					text3.setText("No server registered on master repository");
+					Log.d(TAG, "No server registered on master repository");
 				}
-				text3.setText("client id: " + cid + ", local server: " + ip);
-				mSocket = new Socket(ip, 7890);
-				out = mSocket.getOutputStream();
-				Log.d(TAG,"reconnecting");
+				else {
+					text3.setText("client id: " + cid + ", local server: " + ip);
+					Log.d(TAG,"client id: " + cid + ", connecting to local server: " + ip);
+					mSocket = new Socket(ip, 7890);
+					Log.d(TAG,"connection established!");
+					out = mSocket.getOutputStream();
+				}
+				try {
+					Thread.sleep(1000);
+				} catch (InterruptedException e) {}
 			}
 			JSONObject obj = new JSONObject();
 			obj.put("id", cid);
@@ -202,6 +209,8 @@ public class ActionPainterActivity extends Activity implements SensorEventListen
 
 	private String getServerIp() throws IOException, ClientProtocolException {
 		Log.d(TAG, "retrieving server IP from: " + SERVER_IP);
+//		if(true)
+//			return "192.168.2.106";
 		HttpClient client = new DefaultHttpClient();
 		HttpGet req = new HttpGet(SERVER_IP);
 		HttpResponse resp = client.execute(req);

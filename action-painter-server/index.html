@@ -18,6 +18,7 @@
 			}
 			#paintCanvas {
 				position: absolute;
+				background: #f8f8f8;
 				top: 0;
 				bottom: 0;
 				left: 0;
@@ -36,7 +37,7 @@
 		<script src="static/base64.js"></script>
 		<script src="static/canvas2image.js"></script>
 	</head>
-	<body>
+	<body onbeforeunload="onClose()">
 		<canvas id="paintCanvas" width=1410 height=870></canvas> 
 
 		<div id="brushDiv1" style="position:absolute">
@@ -56,6 +57,9 @@
  		</div>		
 
 		<img id="splash" src="static/splash.png" width="100" style="display:none"/>
+		<img id="drip0" src="static/drip0.png" style="display:none"/>
+		<img id="drip1" src="static/drip1.png" style="display:none"/>
+		<img id="drip2" src="static/drip2.png" style="display:none"/>
 		<img id="brush1" src="static/brush1.png" width="64" style="display:none"/>
 		<img id="brush2" src="static/brush2.png" width="64" style="display:none"/>
 		<img id="brush3" src="static/brush3.png" width="64" style="display:none"/>
@@ -75,7 +79,10 @@ var paintCanvas = document.getElementById("paintCanvas");
 var brushCanvas1 = document.getElementById("brushCanvas1");
 var brushCanvas2 = document.getElementById("brushCanvas2");
 var brushCanvas3 = document.getElementById("brushCanvas3");
-var splash = document.getElementById("splash");
+var splashImg = document.getElementById("splash");
+var drip0Img = document.getElementById("drip0");
+var drip1Img = document.getElementById("drip1");
+var drip2Img = document.getElementById("drip2");
 var paintCtx = paintCanvas.getContext("2d");
 var brush1Ctx = brushCanvas1.getContext("2d");
 var brush2Ctx = brushCanvas2.getContext("2d");
@@ -168,8 +175,8 @@ var YMARGIN = 10;
 var RAD = 57.2957795;
 var AMPLITUDE = 7;
 
-var maxPaintMode = 5;
-var paintMode = 3;
+var maxPaintMode = 2;
+var paintMode = 0;
 var colorCounter = 0;
 
 //paintCtx.moveTo(loc_x[user], loc_y[user]);
@@ -183,51 +190,54 @@ function min(a,b) {
  return (a<b ? a : b);
 }
 
+var colorTheme = [ "#000000", // black
+                   "#00e0ff", // cyan
+                   "#ff0080", // magenta
+                   "#ffff00", // yellow
+				];
+
+				
+var drawMode = 0;
+
 function drawLine(x,y, x2,y2, ac) {
 	paintCtx.beginPath();
 	paintCtx.moveTo(x,y);
 	paintCtx.lineWidth = 2+Math.pow(ac,2);
 	paintCtx.globalAlpha = 0.4; // set global alpha
-	
-	switch (colorCounter)
-	{
-	 case 0: 
-		paintCtx.strokeStyle = "#000000"; // black
-		break;
-	 case 1: 
-		paintCtx.strokeStyle = "#00e0ff"; // cyan
-		break;
-	 case 2: 
-		paintCtx.strokeStyle = "#ff0080"; // magenta
-		break;
-	 case 3: 
-		paintCtx.strokeStyle = "#ffff00"; // yellow
-		break;
-	}
-	
-	switch (paintMode) {
-	 case 0:
-		paintCtx.lineCap = "round";
-		paintCtx.bezierCurveTo(
-			x,y,x2,y2,x2,y2
-		);
-		break;
-	 case 1:
-		paintCtx.lineCap = "butt";
-		
-		paintCtx.quadraticCurveTo(x,y,x2,y2);
-		break;
-	 case 2:
-		paintCtx.lineCap = "round";
-		paintCtx.lineTo(x2,y2);
-		break;
-	 case 3:
-		paintCtx.lineCap = "butt";
-		paintCtx.lineTo(x2,y2);
-		break;
-	}
+	paintCtx.strokeStyle = colorTheme[colorCounter];
+	paintCtx.lineCap = "butt"; //"round" 
+	paintCtx.lineTo(x2,y2);
 	paintCtx.stroke();
 }
+
+function showRotatedeImage(ctx, img, x,y, w,h, ang)
+{
+  ctx.globalAlpha = 1; // set global alpha
+  ctx.translate(x, y);
+  ctx.rotate(ang);
+  ctx.drawImage(img, 0,0, w,h);
+  ctx.rotate(-ang);
+  ctx.translate(-x, -y);
+}
+
+function drawDrip(x,y, x2,y2, ac) {
+    var dripImg = drip0Img;
+	var w = Math.abs(x2-x);
+	var h = Math.abs(y2-y);
+	var ang = Math.atan2(y2-y, x2-x);
+    showRotatedeImage(paintCtx, dripImg, x,y, w,h, ang);
+}
+
+function draw(x,y, x2,y2, ac) {
+  switch(paintMode)
+  {
+   case 0: drawLine(x,y, x2,y2, ac);
+     break;
+   case 1: drawDrip(x,y, x2,y2, ac);
+     break;
+  }
+}
+
 
 var videoCountdownDiv = document.getElementById("videoCountdownDiv");
 var videoCountdown = document.getElementById("videoCountdown");
@@ -263,7 +273,7 @@ var maxPaintModeTimeoutCounter = 60;
 var paintModeTimeoutCounter = maxPaintModeTimeoutCounter;
 
 function startNewPaintMode() {
-	paintMode = (paintMode+1)%4; //change paint mode
+	paintMode = (paintMode+1)%maxPaintMode; //change paint mode
 	console.log("startNewPaintMode: paintMode="+paintMode+" activeUsers="+activeUsers);
 	paintModeTimeoutCounter = maxPaintModeTimeoutCounter;//restart timer
 	clearScreen();
@@ -308,6 +318,15 @@ function handleCommand(c) {
 function handle(data) {
 	if(data.length > 2) {
 	  	motion = JSON.parse(data);
+		//intercept control messages
+		if (motion.msg == "join") {
+		   addUser(motion.id);
+		   return;
+		   }
+		if (motion.msg == "quit") {
+		   deleteUser(motion.id);
+		   return;
+		   }
 		//user
 		user = cid2user(motion.id);
 		if (user == 0)
@@ -373,19 +392,20 @@ function handle(data) {
 	  	brushDiv.style.top = loc_y[user] - brushCanvas.height/2 - 10;
 	  	brushDiv.style.left = loc_x[user] - brushCanvas.width/2-30;
 		brushCtx.clearRect(0,0,brushCanvas.width,brushCanvas.height);
- 		brushCtx.translate(brushCanvas.width/2, brushCanvas.height/2);
-		brushCtx.rotate(motion.rl);
-		brushCtx.drawImage(brush, 0, 0, 64,64);
-		brushCtx.rotate(-motion.rl);
-  		brushCtx.translate(-brushCanvas.width/2, -brushCanvas.height/2);
+		showRotatedeImage(brushCtx, brush, brushCanvas.width/2, brushCanvas.height/2, 64,64, motion.rl);
+//		brushCtx.translate(brushCanvas.width/2, brushCanvas.height/2);
+//		brushCtx.rotate(motion.rl);
+//		brushCtx.drawImage(brush, 0, 0, 64,64);
+//		brushCtx.rotate(-motion.rl);
+//		brushCtx.translate(-brushCanvas.width/2, -brushCanvas.height/2);
 		
 	  	//console.log("location-x:",loc_x, ", location-y: ", loc_y);
 	  	if (motion.sp) {
-	  		paintCtx.drawImage(splash, loc_x[user] - 35, loc_y[user] - 35);
+	  		paintCtx.drawImage(splashImg, loc_x[user] - 35, loc_y[user] - 35);
 	  	}
 	  	// console.log(loc_x[user], ", ", loc_y[user]);
 	  	if(!spilled && motion.pd) {
-			drawLine(loc_x1[user], loc_y1[user],  loc_x[user], loc_y[user], acc);
+			draw(loc_x1[user], loc_y1[user],  loc_x[user], loc_y[user], acc);
   		}
 	  	
 	  	loc_x1[user] = loc_x[user];
@@ -411,7 +431,7 @@ function mouseup(e) {
     var x = keepx, y = keepy, x2 = e.pageX - paintCanvas.offsetLeft, y2 = e.pageY- paintCanvas.offsetTop;
 	var acx = 20*(x2-x)/paintCanvas.width, acy = 20*(y2-y)/paintCanvas.height;
 	var ac = Math.sqrt(Math.pow(acx, 2) + Math.pow(acy, 2));
-	drawLine(x,y ,x2,y2 , ac);
+	draw(x,y ,x2,y2 , ac);
 }	
 
 function keypressed(e) {
@@ -458,8 +478,6 @@ setInterval(function() {
 	paintCtx.fillStyle = "#000080"; // text color
     paintCtx.fillText(paintModeTimeoutCounter, x, y-50);	
 
-
-
 	paintModeTimeoutCounter--;
 	if (paintModeTimeoutCounter<0) {
 	   paintModeTimeoutCounter = maxPaintModeTimeoutCounter;
@@ -468,6 +486,10 @@ setInterval(function() {
 	
 }, 1000);
 
+function onClose() {
+     // socket.close();
+    socket.disconnect();
+}
   startNewPaintMode();
 
 </script> 	

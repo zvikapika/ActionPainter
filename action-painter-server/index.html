@@ -37,10 +37,14 @@
 		<div id="brushDiv2" style="position:absolute">
 			<canvas id="brushCanvas2"></canvas>
  		</div>		
+		<div id="brushDiv3" style="position:absolute">
+			<canvas id="brushCanvas3"></canvas>
+ 		</div>		
 
 		<img id="splash" src="static/splash.png" width="100" style="display:none"/>
 		<img id="brush1" src="static/brush1.png" width="64" style="display:none"/>
 		<img id="brush2" src="static/brush2.png" width="64" style="display:none"/>
+		<img id="brush3" src="static/brush3.png" width="64" style="display:none"/>
 
 		<script type="text/javascript">
 
@@ -52,13 +56,16 @@ var socket = io.connect('/');
 
 var brush1Div = document.getElementById("brushDiv1");
 var brush2Div = document.getElementById("brushDiv2");
+var brush3Div = document.getElementById("brushDiv3");
 var paintCanvas = document.getElementById("paintCanvas");
 var brushCanvas1 = document.getElementById("brushCanvas1");
 var brushCanvas2 = document.getElementById("brushCanvas2");
+var brushCanvas3 = document.getElementById("brushCanvas3");
 var splash = document.getElementById("splash");
 var paintCtx = paintCanvas.getContext("2d");
 var brush1Ctx = brushCanvas1.getContext("2d");
 var brush2Ctx = brushCanvas2.getContext("2d");
+var brush3Ctx = brushCanvas3.getContext("2d");
 
 var brush, brushDiv, brushCtx, brushCanvas;
 var user = 0;
@@ -67,23 +74,91 @@ var user = 0;
 //canvas.mozRequestFullScreen();
 document.body.style.overflow = "hidden"; // disable scrollbars
 
+//user management
+var maxActiveUsers = 3;
+var activeUsers = 0;
+var activeUserList = [ false, false, false ];//false if not active, CID if active
+var startTimeUser = [ null, null, null ]; //session management - store start time per user
 
-var loc_x = [paintCanvas.width*1/3, paintCanvas.width*2/3];
-var loc_y = [paintCanvas.height/2,paintCanvas.height/2];
-var loc_x1 = [0,0], loc_y1 = [0,0], loc_x2 = [0,0], loc_y2 = [0,0];
-var MASS_RATIO = 0.1;
-var MAX_VELOCITY = 10;
-var BRUSH_SPEED = 10;
+function userUpdate() {
+	if (activeUsers==0) {//no users connected
+		document.title = "ActionPainter (not connected)";
+	}
+	else {//users connected 
+		document.title = "ActionPainter ("+activeUsers+" "+(activeUsers>1? "users" : "user") +")";
+	}
+}
+
+function addUser(cid) {
+  if (activeUsers+1<=maxActiveUsers) {
+	for (var i = 0; i < maxActiveUsers; i++) {
+	  if (activeUserList[i] == false) {
+		activeUserList[i] = cid;
+		startTimeUser[i] = new Date();//keep user entry timestamp
+		activeUsers++;
+		userUpdate();
+		resetUserLocation(i);
+		console.log("New user "+i+" ("+activeUsers+"/"+maxActiveUsers+"): "+activeUserList[i]+" timestamp: "+startTimeUser[i]);
+		if (activeUsers == 1) {//first user joined
+			startNewPaintMode();
+		}
+		return;
+	  }
+	}
+  }
+}
+
+function deleteUser(cid) {
+  if (activeUsers>0) {
+	for (var i = 0; i < maxActiveUsers; i++) {
+	  if (activeUserList[i] == cid) {
+		activeUserList[i] = false;
+		startTimeUser[i] = null;
+		activeUsers--;
+		userUpdate();
+		console.log("Deleting user "+i+" ("+activeUsers+"/"+maxActiveUsers+"): "+cid);
+		if (activeUsers == 0) {//last user left
+			startNewPaintMode();
+		}
+		return;
+	  }
+	}
+  }
+}
+
+function cid2user(cid) {
+  var uid=0;//temp patch!
+  for (var i = 0; i < maxActiveUsers; i++) {
+	 if (activeUserList[i] == cid) {
+		uid = i;
+	 }
+  }
+  return uid;
+}
+
+var loc_x = [paintCanvas.width*1/(maxActiveUsers+1), paintCanvas.width*2/(maxActiveUsers+1), paintCanvas.width*3/(maxActiveUsers+1) ];
+var loc_y = [paintCanvas.height/2, paintCanvas.height/2, paintCanvas.height/2];
+var loc_x1 = [0,0,0], loc_y1 = [0,0,0];
+
+function resetUserLocation(user) {
+ loc_x1[user] = paintCanvas.width*(user+1)/(maxActiveUsers+1);
+ loc_y1[user] = paintCanvas.height/2;
+ loc_x[user] = loc_x1[user];
+ loc_y[user] = loc_y1[user];
+// console.log("resetUserLocation "+user+": x="+loc_x[user]+" y="+loc_y[user])
+}
+
 var ORIENTATION_FACTOR = 0.15;
 var XMARGIN = 10;
 var YMARGIN = 10;
 var RAD = 57.2957795;
 var AMPLITUDE = 7;
 
+var maxPaintMode = 5;
 var paintMode = 3;
 var colorCounter = 0;
 
-paintCtx.moveTo(loc_x[user], loc_y[user]);
+//paintCtx.moveTo(loc_x[user], loc_y[user]);
 paintCtx.lineWidth = 7;
 
 function max(a,b) {
@@ -94,11 +169,107 @@ function min(a,b) {
  return (a<b ? a : b);
 }
 
+function drawLine(x,y, x2,y2, ac) {
+	paintCtx.beginPath();
+	paintCtx.moveTo(x,y);
+	paintCtx.lineWidth = 2+Math.pow(ac,2);
+	paintCtx.globalAlpha = 0.4; // set global alpha
+	
+	switch (colorCounter)
+	{
+	 case 0: 
+		paintCtx.strokeStyle = "#000000"; // black
+		break;
+	 case 1: 
+		paintCtx.strokeStyle = "#00e0ff"; // cyan
+		break;
+	 case 2: 
+		paintCtx.strokeStyle = "#ff0080"; // magenta
+		break;
+	 case 3: 
+		paintCtx.strokeStyle = "#ffff00"; // yellow
+		break;
+	}
+	
+	switch (paintMode) {
+	 case 0:
+		paintCtx.lineCap = "round";
+		paintCtx.bezierCurveTo(
+			x,y,x2,y2,x2,y2
+		);
+		break;
+	 case 1:
+		paintCtx.lineCap = "butt";
+		
+		paintCtx.quadraticCurveTo(x,y,x2,y2);
+		break;
+	 case 2:
+		paintCtx.lineCap = "round";
+		paintCtx.lineTo(x2,y2);
+		break;
+	 case 3:
+		paintCtx.lineCap = "butt";
+		paintCtx.lineTo(x2,y2);
+		break;
+	}
+	paintCtx.stroke();
+}
+
+function clearScreen() {
+    paintCtx.clearRect(0, 0, paintCanvas.width, paintCanvas.height);
+//	paintCanvas.width = paintCanvas.width; //clear canvas  - lousy hack :( 
+}
+
+var maxPaintModeTimeoutCounter = 60;
+var paintModeTimeoutCounter = maxPaintModeTimeoutCounter;
+
+function startNewPaintMode() {
+	paintMode = (paintMode+1)%4; //change paint mode
+	console.log("startNewPaintMode: paintMode="+paintMode+" activeUsers="+activeUsers);
+	paintModeTimeoutCounter = maxPaintModeTimeoutCounter;//restart timer
+	clearScreen();
+	
+	if (activeUsers==0) {//no users connected
+		paintCtx.globalAlpha = 1; // set global alpha
+		paintCtx.font = "120pt Calibri";
+		paintCtx.textAlign = "center";
+		paintCtx.fillStyle = "#000080"; // text color
+		paintCtx.fillText("Please connect", paintCanvas.width/2, paintCanvas.height/2);	
+	}
+	else {//users connected - reset their location
+		for (var i = 0; i < maxActiveUsers; i++) {
+		  if ((activeUserList[i] != null) && (activeUserList[i] != undefined)) {
+			  resetUserLocation(i);
+			}
+		}
+	}
+	  
+}
+
+function handleCommand(c) {
+		switch (c)
+		{
+		 case 'm': 	startNewPaintMode();
+					break;
+		 case 'p': 	Canvas2Image.saveAsPNG(paintCanvas); 
+					break;
+		 case 'c': 	clearScreen();
+					break;
+		 case '+': 	{//color change
+						++colorCounter;
+		 				colorCounter %= 4;
+		 				console.log("color set to: " + colorCounter);
+					}
+					break;
+
+		}
+}
+
 function handle(data) {
 	if(data.length > 2) {
 	  	motion = JSON.parse(data);
 		//user
-		user = motion.id % 2;
+		user = cid2user(motion.id);
 		if (user == 0)
 		{
 		  brush = brush1;
@@ -112,6 +283,13 @@ function handle(data) {
 		  brushDiv = brush2Div;
 		  brushCtx = brush2Ctx;
 		  brushCanvas = brushCanvas2;
+		}
+		if (user == 1)
+		{
+		  brush = brush3;
+		  brushDiv = brush3Div;
+		  brushCtx = brush3Ctx;
+		  brushCanvas = brushCanvas3;
 		}
 		
 		
@@ -128,22 +306,7 @@ function handle(data) {
 			loc_y[user] += (Math.abs(motion.rl) - 1.5) * ORIENTATION_FACTOR * RAD * acc;
 		}
 				
-		switch (motion.cmd)
-		{
-		 case 'm': 	paintMode = (paintMode+1)%4; //change paint mode
-					break;
-		 case 'p': 	Canvas2Image.saveAsPNG(paintCanvas); 
-					break;
-		 case 'c': 	paintCanvas.width = paintCanvas.width; //clear canvas  - lousy hack :( 
-					break;
-		 case '+': 	{//color change
-						++colorCounter;
-		 				colorCounter %= 4;
-		 				console.log("color set to: " + colorCounter);
-					}
-					break;
-
-		}
+		handleCommand(motion.cmd);
 		
 	  	var spilled = (loc_x[user] <= XMARGIN || loc_x[user] >= paintCanvas.width-XMARGIN || loc_y[user] <= YMARGIN || loc_y[user] >= paintCanvas.height-YMARGIN);
 	    
@@ -182,76 +345,90 @@ function handle(data) {
 	  	}
 	  	// console.log(loc_x[user], ", ", loc_y[user]);
 	  	if(!spilled && motion.pd) {
-			paintCtx.beginPath();
-			paintCtx.moveTo(loc_x1[user], loc_y1[user]);
-		    paintCtx.lineWidth = 2+Math.pow(acc,2);
-			paintCtx.globalAlpha = 0.4; // set global alpha
-			
-			switch (colorCounter)
-			{
-			 case 0: 
-				paintCtx.strokeStyle = "#000000"; // black
-			 	break;
-			 case 1: 
-				paintCtx.strokeStyle = "#00e0ff"; // cyan
-			 	break;
-			 case 2: 
-				paintCtx.strokeStyle = "#ff0080"; // magenta
-			 	break;
-			 case 3: 
-				paintCtx.strokeStyle = "#ffff00"; // yellow
-			 	break;
-			}
-			
-			switch (paintMode) {
-			 case 0:
-				paintCtx.lineCap = "round";
-				paintCtx.bezierCurveTo(
-					loc_x2[user], loc_y2[user], loc_x1[user], loc_y1[user], loc_x[user], loc_y[user]
-				);
-				break;
-			 case 1:
-				paintCtx.lineCap = "butt";
-				
-				paintCtx.quadraticCurveTo(loc_x1[user],loc_y1[user],loc_x[user],loc_y[user]);
-				break;
-			 case 2:
-				paintCtx.lineCap = "round";
-		  		paintCtx.lineTo(loc_x[user], loc_y[user]);
-				break;
-			 case 3:
-				paintCtx.lineCap = "butt";
-		  		paintCtx.lineTo(loc_x[user], loc_y[user]);
-				break;
-			}
-	  		paintCtx.stroke();
+			drawLine(loc_x1[user], loc_y1[user],  loc_x[user], loc_y[user], acc);
   		}
-	  	
-	  	loc_x2[user] = loc_x1[user];
-	  	loc_y2[user] = loc_y1[user];
 	  	
 	  	loc_x1[user] = loc_x[user];
 	  	loc_y1[user] = loc_y[user];
 	}  	
 }
 
-/*	
-var counter = 0;
+
+
+function mousemove(e) { 
+}	
+
+paintCanvas.onmousemove = mousemove;
+
+var keepx=0,keepy=0;
+
+function mousedown(e) { 
+ keepx = e.pageX - paintCanvas.offsetLeft;
+ keepy = e.pageY- paintCanvas.offsetTop;
+}	
+
+function mouseup(e) { 
+    var x = keepx, y = keepy, x2 = e.pageX - paintCanvas.offsetLeft, y2 = e.pageY- paintCanvas.offsetTop;
+	var acx = 20*(x2-x)/paintCanvas.width, acy = 20*(y2-y)/paintCanvas.height;
+	var ac = Math.sqrt(Math.pow(acx, 2) + Math.pow(acy, 2));
+	drawLine(x,y ,x2,y2 , ac);
+}	
+
+function keypressed(e) {
+  if (e.which == 67)
+     handleCommand('c');
+  if (e.which == 77)
+     handleCommand('m');
+  if (e.which == 80)
+     handleCommand('p');
+  if (e.which == 187)
+     handleCommand('+');
+  if (e.which == 90)//Z
+     addUser(1234);
+  if (e.which == 65)//A
+     deleteUser(1234);
+}
+
+//paintCanvas.onkeypress = keypressed;
+window.addEventListener('keydown',keypressed,true);
+
+paintCanvas.onmousedown  = mousedown;
+paintCanvas.onmouseup = mouseup;
+
 setInterval(function() {
-    var x = paintCanvas.width-XMARGIN-150;
+    if (activeUsers == 0) {
+	  return;
+	}
+    var x = paintCanvas.width-XMARGIN-50;
     var y = 100;
  
-    paintCtx.font = "80pt Calibri";
-	if (counter<10)
-		paintCtx.fillStyle = "#0000ff"; // text color
-	else
-		paintCtx.fillStyle = "#FFFFff"; // text color
+	paintCtx.globalAlpha = 1; // set global alpha
+	paintCtx.beginPath();
+	paintCtx.rect(x,15, 55, 55);
+	paintCtx.fillStyle = "#ffffff"; // back color
+	paintCtx.fill();	
 	
-    paintCtx.fillText(counter%10, x, y);	
-	counter = (counter+1)%20
+	//paintCtx.lineWidth = 5;
+    //paintCtx.strokeStyle = "black";
+    //paintCtx.stroke();
 	
-}, 100);
-*/
+	paintCtx.globalAlpha = (maxPaintModeTimeoutCounter-paintModeTimeoutCounter)/400;//0.6; // set global alpha
+    paintCtx.font = "40pt Calibri";
+	paintCtx.textAlign = "left";
+	paintCtx.fillStyle = "#000080"; // text color
+    paintCtx.fillText(paintModeTimeoutCounter, x, y-50);	
+
+
+
+	paintModeTimeoutCounter--;
+	if (paintModeTimeoutCounter<0) {
+	   paintModeTimeoutCounter = maxPaintModeTimeoutCounter;
+	   startNewPaintMode();
+	}
+	
+}, 1000);
+
+  startNewPaintMode();
 
 </script> 	
 

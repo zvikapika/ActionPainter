@@ -22,6 +22,14 @@
 				bottom: 0;
 				left: 0;
 				right: 0;
+				border:15px solid #d3d3d3;
+				z-index:0;
+			}
+			#videoCountdownDiv {
+				position:absolute; 
+				top: 50;
+				left: 80;
+				z-index:100;
 			}
 		</style>
 		<script src="static/socket.io.js"></script>
@@ -29,7 +37,7 @@
 		<script src="static/canvas2image.js"></script>
 	</head>
 	<body>
-		<canvas id="paintCanvas" width=1410 height=870 style="border:15px solid #d3d3d3;"></canvas> 
+		<canvas id="paintCanvas" width=1410 height=870></canvas> 
 
 		<div id="brushDiv1" style="position:absolute">
 			<canvas id="brushCanvas1"></canvas>
@@ -39,6 +47,12 @@
  		</div>		
 		<div id="brushDiv3" style="position:absolute">
 			<canvas id="brushCanvas3"></canvas>
+ 		</div>		
+
+		<div id="videoCountdownDiv" style="display:hide">
+			<video id="videoCountdown" style="display:hide;">
+				<source src="static/countdown3.mp4" type="video/mp4" />Your browser does not support the video tag.
+			</video>
  		</div>		
 
 		<img id="splash" src="static/splash.png" width="100" style="display:none"/>
@@ -215,6 +229,31 @@ function drawLine(x,y, x2,y2, ac) {
 	paintCtx.stroke();
 }
 
+var videoCountdownDiv = document.getElementById("videoCountdownDiv");
+var videoCountdown = document.getElementById("videoCountdown");
+
+videoCountdownDiv.style.left = 2000;//temp patch to hide video		    
+
+function playVideoCountdown() {
+	videoCountdownDiv.style = "display:block";
+	videoCountdown.style = "display:block";
+	videoCountdownDiv.style.left = 80;//temp patch to unhide video		    
+	
+	var t; // This is for the timer
+	t = window.setInterval(function() {
+		if (videoCountdown.ended != true) {
+			;
+		} else {
+			videoCountdownDiv.style.left = 2000;//temp patch to hide video		    
+			videoCountdownDiv.style = "display:hide";
+			videoCountdown.style = "display:hide";
+			window.clearInterval(t);
+		}
+	},100);
+	videoCountdown.play();	
+}
+
+
 function clearScreen() {
     paintCtx.clearRect(0, 0, paintCanvas.width, paintCanvas.height);
 //	paintCanvas.width = paintCanvas.width; //clear canvas  - lousy hack :( 
@@ -237,6 +276,7 @@ function startNewPaintMode() {
 		paintCtx.fillText("Please connect", paintCanvas.width/2, paintCanvas.height/2);	
 	}
 	else {//users connected - reset their location
+		playVideoCountdown();
 		for (var i = 0; i < maxActiveUsers; i++) {
 		  if ((activeUserList[i] != null) && (activeUserList[i] != undefined)) {
 			  resetUserLocation(i);
@@ -284,7 +324,7 @@ function handle(data) {
 		  brushCtx = brush2Ctx;
 		  brushCanvas = brushCanvas2;
 		}
-		if (user == 1)
+		if (user == 2)
 		{
 		  brush = brush3;
 		  brushDiv = brush3Div;
